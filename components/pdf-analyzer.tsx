@@ -35,7 +35,7 @@ export function PdfAnalyzer() {
   const [isDragging, setIsDragging] = useState(false)
   const [copied, setCopied] = useState(false)
   const [resultFont, setResultFont] = useState<ResultFont>('sans')
-  const [showOptions, setShowOptions] = useState(false)
+  const [deepMode, setDeepMode] = useState(false)
   const [language, setLanguage] = useState<AnalysisOptions['language']>('English')
   const [summaryLength, setSummaryLength] = useState<AnalysisOptions['summaryLength']>('standard')
   const [takeawayLength, setTakeawayLength] = useState<AnalysisOptions['takeawayLength']>('one')
@@ -43,6 +43,10 @@ export function PdfAnalyzer() {
   const pendingExtended = useRef(false)
 
   function currentOptions(extended: boolean): AnalysisOptions {
+    // Plain Analyse always uses defaults; the tuning options only apply to Deep Analyse.
+    if (!extended) {
+      return { language: 'English', summaryLength: 'standard', takeawayLength: 'one', extended: false }
+    }
     return { language, summaryLength, takeawayLength, extended }
   }
 
@@ -197,11 +201,22 @@ export function PdfAnalyzer() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => submitUrl(true)}
-                    disabled={status === 'loading' || !url.trim()}
-                    className="inline-flex h-11 items-center justify-center rounded-lg border border-primary bg-background px-5 text-sm font-medium text-primary transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-expanded={deepMode}
+                    onClick={() => {
+                      if (!deepMode) {
+                        setDeepMode(true)
+                        return
+                      }
+                      submitUrl(true)
+                    }}
+                    disabled={status === 'loading' || (deepMode && !url.trim())}
+                    className={`inline-flex h-11 items-center justify-center rounded-lg border border-primary px-5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                      deepMode
+                        ? 'bg-primary text-primary-foreground hover:opacity-90'
+                        : 'bg-background text-primary hover:bg-accent'
+                    }`}
                   >
-                    Extended Analyse
+                    {deepMode ? 'Run Deep Analyse' : 'Deep Analyse'}
                   </button>
                 </div>
               </div>
@@ -262,14 +277,23 @@ export function PdfAnalyzer() {
                 </button>
                 <button
                   type="button"
+                  aria-expanded={deepMode}
                   disabled={status === 'loading'}
                   onClick={() => {
+                    if (!deepMode) {
+                      setDeepMode(true)
+                      return
+                    }
                     pendingExtended.current = true
                     fileInputRef.current?.click()
                   }}
-                  className="inline-flex h-10 items-center justify-center rounded-lg border border-primary bg-background px-5 text-sm font-medium text-primary transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                  className={`inline-flex h-10 items-center justify-center rounded-lg border border-primary px-5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                    deepMode
+                      ? 'bg-primary text-primary-foreground hover:opacity-90'
+                      : 'bg-background text-primary hover:bg-accent'
+                  }`}
                 >
-                  Extended Analyse
+                  {deepMode ? 'Choose file for Deep Analyse' : 'Deep Analyse'}
                 </button>
               </div>
               <input
@@ -287,28 +311,19 @@ export function PdfAnalyzer() {
           </div>
         )}
 
-        {/* Options panel */}
-        <div className="flex flex-col gap-3 border-t border-border pt-4">
-          <button
-            type="button"
-            onClick={() => setShowOptions((v) => !v)}
-            aria-expanded={showOptions}
-            className="flex items-center gap-2 self-start font-mono text-xs uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <svg
-              aria-hidden="true"
-              className={`size-3.5 transition-transform ${showOptions ? 'rotate-90' : ''}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-            </svg>
-            Analysis options
-          </button>
-
-          {showOptions && (
+        {/* Deep Analyse options — only visible once Deep Analyse is activated */}
+        {deepMode && (
+          <div className="flex flex-col gap-3 border-t border-border pt-4">
+            <div className="flex items-center justify-between">
+              <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Deep Analyse options</p>
+              <button
+                type="button"
+                onClick={() => setDeepMode(false)}
+                className="font-mono text-xs text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
+              >
+                Cancel
+              </button>
+            </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <OptionSelect
                 id="opt-language"
@@ -343,8 +358,8 @@ export function PdfAnalyzer() {
                 disabled={status === 'loading'}
               />
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Loading state */}
@@ -377,7 +392,7 @@ export function PdfAnalyzer() {
         <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-accent px-6 py-3">
             <p className="font-mono text-xs uppercase tracking-widest text-accent-foreground">
-              {isExtendedResult ? 'Extended analysis' : 'Analysis result'}
+              {isExtendedResult ? 'Deep analysis' : 'Analysis result'}
             </p>
             <div className="flex items-center gap-4">
               {/* Result font switcher */}
