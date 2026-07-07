@@ -37,13 +37,28 @@ export const extendedAnalysisSchema = analysisSchema.extend({
   targetAudience: z
     .string()
     .describe('Who this document is written for, in one short sentence'),
-  suggestedQuestions: z
-    .array(z.string())
-    .describe('3 insightful questions a reader could ask after reading this document'),
 })
 
 export type Analysis = z.infer<typeof analysisSchema>
 export type ExtendedAnalysis = z.infer<typeof extendedAnalysisSchema>
+
+/**
+ * Structured answer for the "Ask this PDF" feature.
+ * `foundInPdf` lets the UI clearly distinguish grounded answers from
+ * general-knowledge fallbacks, so users are never misled about the source.
+ */
+export const qaSchema = z.object({
+  foundInPdf: z
+    .boolean()
+    .describe('true ONLY if the answer is explicitly supported by the PDF content, false otherwise'),
+  answer: z
+    .string()
+    .describe(
+      'If foundInPdf is true: the answer based strictly on the PDF, quoting or referencing it where useful. If foundInPdf is false: a brief general-knowledge answer to the question.',
+    ),
+})
+
+export type QaResult = z.infer<typeof qaSchema>
 
 /** User-tweakable analysis options, validated on the server. */
 export const OUTPUT_LANGUAGES = ['English', 'Hindi', 'Spanish', 'French', 'German', 'Japanese'] as const

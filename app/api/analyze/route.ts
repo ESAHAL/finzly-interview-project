@@ -31,7 +31,7 @@ function buildPrompt(options: AnalysisOptions) {
 
   if (options.extended) {
     parts.push(
-      'Additionally: list 3-6 key topics as short phrases, describe the overall tone, identify the target audience in one sentence, and suggest 3 insightful questions a reader could ask after reading it.',
+      'Additionally: list 3-6 key topics as short phrases, describe the overall tone, and identify the target audience in one sentence.',
     )
   }
 

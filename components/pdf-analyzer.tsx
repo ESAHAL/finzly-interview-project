@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import type { Analysis, AnalysisOptions, ExtendedAnalysis } from '@/lib/analysis'
+import type { Analysis, AnalysisOptions, ExtendedAnalysis, QaResult } from '@/lib/analysis'
 import { OUTPUT_LANGUAGES } from '@/lib/analysis'
 
 const SAMPLE_URL = 'https://arxiv.org/pdf/1706.03762'
@@ -12,6 +12,9 @@ type Mode = 'url' | 'upload'
 type ResultFont = 'sans' | 'serif' | 'mono'
 
 type AnyAnalysis = Analysis & Partial<ExtendedAnalysis>
+
+/** The PDF that was last analysed, kept so follow-up questions can reference it. */
+type PdfSource = { kind: 'url'; url: string } | { kind: 'file'; file: File }
 
 interface HistoryEntry {
   id: number
@@ -39,6 +42,11 @@ export function PdfAnalyzer() {
   const [language, setLanguage] = useState<AnalysisOptions['language']>('English')
   const [summaryLength, setSummaryLength] = useState<AnalysisOptions['summaryLength']>('standard')
   const [takeawayLength, setTakeawayLength] = useState<AnalysisOptions['takeawayLength']>('one')
+  const [source, setSource] = useState<PdfSource | null>(null)
+  const [question, setQuestion] = useState('')
+  const [qaStatus, setQaStatus] = useState<Status>('idle')
+  const [qaError, setQaError] = useState('')
+  const [qaResult, setQaResult] = useState<QaResult | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const pendingExtended = useRef(false)
 
@@ -50,13 +58,19 @@ export function PdfAnalyzer() {
     return { language, summaryLength, takeawayLength, extended }
   }
 
-  async function runAnalysis(request: () => Promise<Response>, sourceLabel: string) {
+  async function runAnalysis(request: () => Promise<Response>, sourceLabel: string, pdfSource: PdfSource) {
     if (status === 'loading') return
 
     setStatus('loading')
     setError('')
     setAnalysis(null)
     setCopied(false)
+    // Reset the Q&A panel — it must always refer to the current document.
+    setSource(null)
+    setQuestion('')
+    setQaStatus('idle')
+    setQaResult(null)
+    setQaError('')
 
     try {
       const res = await request()
@@ -68,12 +82,50 @@ export function PdfAnalyzer() {
 
       setAnalysis(data.analysis)
       setStatus('success')
+      setSource(pdfSource)
       setHistory((prev) =>
         [{ id: Date.now(), source: sourceLabel, analysis: data.analysis as AnyAnalysis }, ...prev].slice(0, 5),
       )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
       setStatus('error')
+    }
+  }
+
+  async function handleAsk(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const trimmed = question.trim()
+    if (!trimmed || !source || qaStatus === 'loading') return
+
+    setQaStatus('loading')
+    setQaError('')
+    setQaResult(null)
+
+    try {
+      let res: Response
+      if (source.kind === 'url') {
+        res = await fetch('/api/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: source.url, question: trimmed }),
+        })
+      } else {
+        const formData = new FormData()
+        formData.append('file', source.file)
+        formData.append('question', trimmed)
+        res = await fetch('/api/ask', { method: 'POST', body: formData })
+      }
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data?.error || 'Something went wrong. Please try again.')
+      }
+
+      setQaResult(data.result as QaResult)
+      setQaStatus('success')
+    } catch (err) {
+      setQaError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+      setQaStatus('error')
     }
   }
 
@@ -88,6 +140,7 @@ export function PdfAnalyzer() {
           body: JSON.stringify({ url: trimmed, options: currentOptions(extended) }),
         }),
       trimmed,
+      { kind: 'url', url: trimmed },
     )
   }
 
@@ -113,7 +166,10 @@ export function PdfAnalyzer() {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('options', JSON.stringify(currentOptions(extended)))
-    runAnalysis(() => fetch('/api/analyze', { method: 'POST', body: formData }), file.name)
+    runAnalysis(() => fetch('/api/analyze', { method: 'POST', body: formData }), file.name, {
+      kind: 'file',
+      file,
+    })
   }
 
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
@@ -448,25 +504,82 @@ export function PdfAnalyzer() {
                 </div>
                 {analysis.tone && <ResultRow label="Tone" value={analysis.tone} />}
                 {analysis.targetAudience && <ResultRow label="Audience" value={analysis.targetAudience} />}
-                {analysis.suggestedQuestions && analysis.suggestedQuestions.length > 0 && (
-                  <div className="grid gap-1 px-6 py-4 sm:grid-cols-[10rem_1fr] sm:gap-6">
-                    <dt className="font-mono text-xs uppercase tracking-widest text-muted-foreground sm:pt-0.5">
-                      Questions
-                    </dt>
-                    <dd>
-                      <ul className="flex list-disc flex-col gap-1.5 pl-4 text-sm leading-relaxed text-foreground">
-                        {analysis.suggestedQuestions.map((q) => (
-                          <li key={q} className="text-pretty">
-                            {q}
-                          </li>
-                        ))}
-                      </ul>
-                    </dd>
-                  </div>
-                )}
               </>
             )}
           </dl>
+        </div>
+      )}
+
+      {/* Ask this PDF */}
+      {status === 'success' && analysis && source && (
+        <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-sm">
+          <div className="flex flex-col gap-1">
+            <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Ask this PDF</h2>
+            <p className="text-sm text-muted-foreground">
+              Ask a question about the analysed document. Answers are grounded in the PDF whenever possible.
+            </p>
+          </div>
+          <form onSubmit={handleAsk} className="flex flex-col gap-3 sm:flex-row">
+            <input
+              type="text"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              maxLength={500}
+              placeholder="e.g. What methodology does this document use?"
+              disabled={qaStatus === 'loading'}
+              aria-label="Question about the PDF"
+              className="h-11 flex-1 rounded-lg border border-input bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60"
+            />
+            <button
+              type="submit"
+              disabled={qaStatus === 'loading' || !question.trim()}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {qaStatus === 'loading' ? (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="size-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground"
+                  />
+                  Searching PDF…
+                </>
+              ) : (
+                'Ask'
+              )}
+            </button>
+          </form>
+
+          {qaStatus === 'error' && (
+            <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+              <p className="text-sm text-foreground">{qaError}</p>
+            </div>
+          )}
+
+          {qaStatus === 'success' && qaResult && (
+            <div className="flex flex-col gap-3">
+              {qaResult.foundInPdf ? (
+                <div className="rounded-lg border border-border bg-accent p-4">
+                  <p className="font-mono text-xs uppercase tracking-widest text-accent-foreground">
+                    Answer · from the PDF
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-foreground text-pretty">{qaResult.answer}</p>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                  <p className="font-mono text-xs uppercase tracking-widest text-destructive">
+                    Warning · not found in the PDF
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    This information is not present in the PDF. The answer below is general knowledge from the AI
+                    model, not from your document.
+                  </p>
+                  <p className="mt-3 border-t border-destructive/20 pt-3 text-sm leading-relaxed text-foreground text-pretty">
+                    {qaResult.answer}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -485,6 +598,12 @@ export function PdfAnalyzer() {
                     setAnalysis(entry.analysis)
                     setStatus('success')
                     setCopied(false)
+                    // A restored history entry is not the currently loaded PDF,
+                    // so hide the Q&A panel to avoid answering against the wrong document.
+                    setSource(null)
+                    setQaStatus('idle')
+                    setQaResult(null)
+                    setQuestion('')
                   }}
                   className="flex w-full flex-col gap-0.5 rounded-lg border border-border bg-card px-4 py-3 text-left shadow-sm transition-colors hover:bg-accent"
                 >
