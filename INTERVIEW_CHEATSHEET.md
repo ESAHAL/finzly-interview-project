@@ -115,6 +115,12 @@ The UI has exactly four states: `idle | loading | success | error` — a single 
 ### f) `export const maxDuration = 60`
 Serverless functions default to a short timeout (~10s on Vercel). A large PDF + LLM inference can take 30–50 seconds, so I explicitly extended the function's max duration to 60s.
 
+### g) Bonus features beyond the assignment
+
+1. **Drag-and-drop file upload** — a second input mode (tab switcher: "From URL" / "Upload file"). The file is sent as `multipart/form-data` to the same `/api/analyze` endpoint, which branches on the `Content-Type` header. Both paths converge on one shared `analysePdf()` function, so magic-byte verification and the AI call are never duplicated. Client-side pre-checks (file type, 25 MB) give instant feedback, but the server re-validates everything — client checks are UX, server checks are security.
+2. **Copy JSON** — one click copies the validated analysis as formatted JSON via the Clipboard API. Talking point: the output is machine-readable, so it could feed directly into a downstream system (invoice pipeline, KYC workflow).
+3. **Session history** — the last 5 analyses are kept in React state; clicking one re-displays it instantly without re-calling the AI. Deliberately in-memory (not localStorage/DB) — it's ephemeral UX sugar; if persistence were required, I'd use Postgres keyed by a SHA-256 hash of the PDF for cache deduplication.
+
 ---
 
 ## 6. Error Handling Map (Interviewers Love This)
@@ -171,7 +177,7 @@ Field-level prompting via `.describe()`: the authors field explicitly instructs 
 The `Content-Length` header is client-controllable/optional and can lie (or be absent with chunked encoding). I check the header first as a cheap early exit, then check the actual `ArrayBuffer.byteLength` as the authoritative limit. Never trust, always verify.
 
 ### Q10: "What were the hardest parts / what would you improve?"
-Honest answer: the error-handling surface — there are ~10 distinct ways this flow can fail and each needs a distinct, user-friendly message. Improvements: drag-and-drop file upload (not just URLs), streaming responses, analysis history persisted in a database (Postgres), SSRF hardening, rate limiting, and unit tests for the route (mocking fetch + the model).
+Honest answer: the error-handling surface — there are ~10 distinct ways this flow can fail and each needs a distinct, user-friendly message. Improvements: streaming responses (`streamObject` so the summary appears progressively), analysis history persisted in a database (Postgres, keyed by a SHA-256 hash of the PDF for dedup), SSRF hardening, rate limiting, and unit tests for the route (mocking fetch + the model). I already went beyond the base assignment with drag-and-drop upload, JSON export, and session history (see Section 5g).
 
 ### Q11: "Why a 4-value status enum instead of boolean flags?"
 `isLoading + isError + hasData` booleans allow impossible states (loading AND error simultaneously). A single discriminated status makes each UI state mutually exclusive — it's a tiny state machine. This is a common React interview talking point.
