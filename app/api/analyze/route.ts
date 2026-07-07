@@ -1,6 +1,13 @@
 import { google } from '@ai-sdk/google'
 import { generateText, Output } from 'ai'
-import { analysisSchema } from '@/lib/analysis'
+import {
+  analysisSchema,
+  extendedAnalysisSchema,
+  optionsSchema,
+  SUMMARY_LENGTHS,
+  TAKEAWAY_LENGTHS,
+  type AnalysisOptions,
+} from '@/lib/analysis'
 
 // Allow up to 60s on Vercel — large PDFs + LLM inference can exceed the 10s default.
 export const maxDuration = 60
@@ -13,8 +20,32 @@ function errorResponse(message: string, status: number) {
   return Response.json({ error: message }, { status })
 }
 
+/** Build the analysis prompt dynamically from the user's options. */
+function buildPrompt(options: AnalysisOptions) {
+  const parts = [
+    'Analyse the attached PDF document.',
+    'Identify what type of document it is, its title, and its authors.',
+    `Write a summary of ${SUMMARY_LENGTHS[options.summaryLength]}.`,
+    `State the most important takeaway in ${TAKEAWAY_LENGTHS[options.takeawayLength]}.`,
+  ]
+
+  if (options.extended) {
+    parts.push(
+      'Additionally: list 3-6 key topics as short phrases, describe the overall tone, identify the target audience in one sentence, and suggest 3 insightful questions a reader could ask after reading it.',
+    )
+  }
+
+  if (options.language !== 'English') {
+    parts.push(
+      `Write ALL output values (summary, takeaway, topics, etc.) in ${options.language}. Keep the title in its original language.`,
+    )
+  }
+
+  return parts.join(' ')
+}
+
 /** Verify magic bytes ("%PDF") and run the Gemini analysis on a PDF buffer. */
-async function analysePdf(pdfBuffer: ArrayBuffer) {
+async function analysePdf(pdfBuffer: ArrayBuffer, options: AnalysisOptions) {
   // ---- Verify it is actually a PDF (magic bytes: "%PDF") ----
   const header = new Uint8Array(pdfBuffer.slice(0, 5))
   const headerText = new TextDecoder().decode(header)
@@ -26,15 +57,14 @@ async function analysePdf(pdfBuffer: ArrayBuffer) {
   try {
     const { output } = await generateText({
       model: google('gemini-2.5-flash'),
-      output: Output.object({ schema: analysisSchema }),
+      output: Output.object({
+        schema: options.extended ? extendedAnalysisSchema : analysisSchema,
+      }),
       messages: [
         {
           role: 'user',
           content: [
-            {
-              type: 'text',
-              text: 'Analyse the attached PDF document. Identify what type of document it is, its title, its authors, write a concise 2-3 sentence summary, and state the single most important takeaway.',
-            },
+            { type: 'text', text: buildPrompt(options) },
             {
               type: 'file',
               mediaType: 'application/pdf',
@@ -59,16 +89,28 @@ async function analysePdf(pdfBuffer: ArrayBuffer) {
   }
 }
 
+/** Parse + validate user options with safe defaults for anything missing/invalid. */
+function parseOptions(raw: unknown): AnalysisOptions {
+  const result = optionsSchema.safeParse(raw)
+  return result.success ? result.data : optionsSchema.parse({})
+}
+
 export async function POST(req: Request) {
   const contentType = req.headers.get('content-type') || ''
 
   // ---- Path A: direct file upload (multipart/form-data from drag & drop) ----
   if (contentType.includes('multipart/form-data')) {
     let file: File | null = null
+    let options = optionsSchema.parse({})
     try {
       const formData = await req.formData()
       const entry = formData.get('file')
       file = entry instanceof File ? entry : null
+
+      const rawOptions = formData.get('options')
+      if (typeof rawOptions === 'string') {
+        options = parseOptions(JSON.parse(rawOptions))
+      }
     } catch {
       return errorResponse('Invalid upload. Please try again.', 400)
     }
@@ -81,15 +123,17 @@ export async function POST(req: Request) {
     }
 
     const pdfBuffer = await file.arrayBuffer()
-    return analysePdf(pdfBuffer)
+    return analysePdf(pdfBuffer, options)
   }
 
   // ---- Path B: JSON body with a URL ----
-  // 1. Parse and validate the input URL
+  // 1. Parse and validate the input URL + options
   let url: string
+  let options = optionsSchema.parse({})
   try {
     const body = await req.json()
     url = typeof body?.url === 'string' ? body.url.trim() : ''
+    options = parseOptions(body?.options)
   } catch {
     return errorResponse('Invalid request body.', 400)
   }
@@ -146,5 +190,5 @@ export async function POST(req: Request) {
   }
 
   // 3. Verify + analyse (shared path)
-  return analysePdf(pdfBuffer)
+  return analysePdf(pdfBuffer, options)
 }
