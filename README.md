@@ -2,6 +2,9 @@
 
 ## Getting Started
 
+
+// AI generated project //
+
 First, run the development server:
 
 ```bash
