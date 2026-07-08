@@ -1,4 +1,3 @@
-import { google } from '@ai-sdk/google'
 import { generateText, Output } from 'ai'
 import {
   analysisSchema,
@@ -8,6 +7,7 @@ import {
   TAKEAWAY_LENGTHS,
   type AnalysisOptions,
 } from '@/lib/analysis'
+import { withKeyFailover } from '@/lib/gemini'
 
 // Allow up to 60s on Vercel — large PDFs + LLM inference can exceed the 10s default.
 export const maxDuration = 60
@@ -54,26 +54,29 @@ async function analysePdf(pdfBuffer: ArrayBuffer, options: AnalysisOptions) {
   }
 
   // ---- Send the PDF to Gemini and request structured JSON output ----
+  // withKeyFailover retries with a backup API key if the current one is rate-limited.
   try {
-    const { output } = await generateText({
-      model: google('gemini-2.5-flash'),
-      output: Output.object({
-        schema: options.extended ? extendedAnalysisSchema : analysisSchema,
+    const { output } = await withKeyFailover((model) =>
+      generateText({
+        model,
+        output: Output.object({
+          schema: options.extended ? extendedAnalysisSchema : analysisSchema,
+        }),
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: buildPrompt(options) },
+              {
+                type: 'file',
+                mediaType: 'application/pdf',
+                data: pdfBuffer,
+              },
+            ],
+          },
+        ],
       }),
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: buildPrompt(options) },
-            {
-              type: 'file',
-              mediaType: 'application/pdf',
-              data: pdfBuffer,
-            },
-          ],
-        },
-      ],
-    })
+    )
 
     return Response.json({ analysis: output })
   } catch (err) {
@@ -83,7 +86,7 @@ async function analysePdf(pdfBuffer: ArrayBuffer, options: AnalysisOptions) {
       return errorResponse('The server is missing a valid Gemini API key.', 500)
     }
     if (message.toLowerCase().includes('quota') || message.includes('429')) {
-      return errorResponse('The AI service is rate-limited right now. Please try again in a minute.', 429)
+      return errorResponse('All configured AI keys are rate-limited right now. Please try again in a minute.', 429)
     }
     return errorResponse('The AI analysis failed. Please try again.', 502)
   }

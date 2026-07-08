@@ -1,6 +1,6 @@
-import { google } from '@ai-sdk/google'
 import { generateText, Output } from 'ai'
 import { qaSchema } from '@/lib/analysis'
+import { withKeyFailover } from '@/lib/gemini'
 
 // Allow up to 60s on Vercel — large PDFs + LLM inference can exceed the 10s default.
 export const maxDuration = 60
@@ -30,20 +30,23 @@ async function answerQuestion(pdfBuffer: ArrayBuffer, question: string) {
     return errorResponse('That file is not a valid PDF. Please provide a real PDF document.', 415)
   }
 
+  // withKeyFailover retries with a backup API key if the current one is rate-limited.
   try {
-    const { output } = await generateText({
-      model: google('gemini-2.5-flash'),
-      output: Output.object({ schema: qaSchema }),
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: QA_PROMPT + question },
-            { type: 'file', mediaType: 'application/pdf', data: pdfBuffer },
-          ],
-        },
-      ],
-    })
+    const { output } = await withKeyFailover((model) =>
+      generateText({
+        model,
+        output: Output.object({ schema: qaSchema }),
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: QA_PROMPT + question },
+              { type: 'file', mediaType: 'application/pdf', data: pdfBuffer },
+            ],
+          },
+        ],
+      }),
+    )
 
     return Response.json({ result: output })
   } catch (err) {
@@ -53,7 +56,7 @@ async function answerQuestion(pdfBuffer: ArrayBuffer, question: string) {
       return errorResponse('The server is missing a valid Gemini API key.', 500)
     }
     if (message.toLowerCase().includes('quota') || message.includes('429')) {
-      return errorResponse('The AI service is rate-limited right now. Please try again in a minute.', 429)
+      return errorResponse('All configured AI keys are rate-limited right now. Please try again in a minute.', 429)
     }
     return errorResponse('The AI could not answer the question. Please try again.', 502)
   }
