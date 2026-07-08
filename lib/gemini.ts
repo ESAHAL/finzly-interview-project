@@ -1,34 +1,62 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import { createMistral } from '@ai-sdk/mistral'
 import { generateText, Output } from 'ai'
 
 /**
- * API key failover ("multi-key rotation").
+ * Multi-provider AI failover.
  *
- * Free-tier Gemini keys have a small daily quota. To avoid the whole app
- * going down when one key is exhausted, we support multiple keys:
+ * Free-tier API keys have small daily quotas. To avoid the whole app going
+ * down when one is exhausted, we try providers/keys in priority order:
  *
- *   GOOGLE_GENERATIVE_AI_API_KEY     (primary — required)
- *   GOOGLE_GENERATIVE_AI_API_KEY_2   (optional fallback)
- *   GOOGLE_GENERATIVE_AI_API_KEY_3   (optional fallback)
+ *   1. GOOGLE_GENERATIVE_AI_API_KEY     (Gemini — primary, required)
+ *   2. GOOGLE_GENERATIVE_AI_API_KEY_2   (Gemini — optional extra key)
+ *   3. GOOGLE_GENERATIVE_AI_API_KEY_3   (Gemini — optional extra key)
+ *   4. MISTRAL_API_KEY                  (Mistral — optional cross-provider fallback)
  *
  * When a call fails with a quota / rate-limit error, we retry the same
- * request with the next key. Any other error (bad PDF, invalid request)
+ * request with the next entry. Any other error (bad PDF, invalid request)
  * is NOT retried — retrying wouldn't help and would waste quota.
+ *
+ * Both providers accept the identical message format (text + PDF file parts),
+ * which is the point of using the AI SDK: swapping the model is one line.
  */
 
-const MODEL_ID = 'gemini-2.5-flash'
+type ProviderEntry = {
+  /** Human-readable name for logs. */
+  name: string
+  /** Builds the AI SDK model instance for this entry. */
+  makeModel: () => Parameters<typeof generateText>[0]['model']
+}
 
-/** Collect all configured keys, in priority order. */
-function getApiKeys(): string[] {
-  const keys = [
+/** Collect all configured providers, in priority order. */
+function getProviders(): ProviderEntry[] {
+  const entries: ProviderEntry[] = []
+
+  const googleKeys = [
     process.env.GOOGLE_GENERATIVE_AI_API_KEY,
     process.env.GOOGLE_GENERATIVE_AI_API_KEY_2,
     process.env.GOOGLE_GENERATIVE_AI_API_KEY_3,
-  ]
-  return keys.filter((k): k is string => typeof k === 'string' && k.length > 0)
+  ].filter((k): k is string => typeof k === 'string' && k.length > 0)
+
+  for (let i = 0; i < googleKeys.length; i++) {
+    entries.push({
+      name: `gemini-2.5-flash (key ${i + 1})`,
+      makeModel: () => createGoogleGenerativeAI({ apiKey: googleKeys[i] })('gemini-2.5-flash'),
+    })
+  }
+
+  const mistralKey = process.env.MISTRAL_API_KEY
+  if (typeof mistralKey === 'string' && mistralKey.length > 0) {
+    entries.push({
+      name: 'mistral-small-latest',
+      makeModel: () => createMistral({ apiKey: mistralKey })('mistral-small-latest'),
+    })
+  }
+
+  return entries
 }
 
-/** Quota / rate-limit errors are the only ones worth retrying with another key. */
+/** Quota / rate-limit errors are the only ones worth retrying with another provider. */
 function isQuotaError(err: unknown): boolean {
   const message = err instanceof Error ? err.message.toLowerCase() : ''
   return (
@@ -36,7 +64,8 @@ function isQuotaError(err: unknown): boolean {
     message.includes('429') ||
     message.includes('rate limit') ||
     message.includes('resource_exhausted') ||
-    message.includes('resource exhausted')
+    message.includes('resource exhausted') ||
+    message.includes('capacity exceeded')
   )
 }
 
@@ -46,28 +75,27 @@ type GenerateParams = {
 }
 
 /**
- * Run a Gemini generation, failing over to the next API key on quota errors.
- * Throws the last error if every key is exhausted.
+ * Run an AI generation, failing over to the next provider/key on quota errors.
+ * Throws the last error if every provider is exhausted.
  */
 export async function generateWithFailover({ output, messages }: GenerateParams) {
-  const keys = getApiKeys()
-  if (keys.length === 0) {
-    throw new Error('No Gemini API key configured (GOOGLE_GENERATIVE_AI_API_KEY).')
+  const providers = getProviders()
+  if (providers.length === 0) {
+    throw new Error('No AI API key configured (GOOGLE_GENERATIVE_AI_API_KEY).')
   }
 
   let lastError: unknown
-  for (let i = 0; i < keys.length; i++) {
-    const provider = createGoogleGenerativeAI({ apiKey: keys[i] })
+  for (let i = 0; i < providers.length; i++) {
     try {
       return await generateText({
-        model: provider(MODEL_ID),
+        model: providers[i].makeModel(),
         output,
         messages,
       })
     } catch (err) {
       lastError = err
-      if (isQuotaError(err) && i < keys.length - 1) {
-        console.log(`[gemini] Key ${i + 1} hit its quota — switching to key ${i + 2}`)
+      if (isQuotaError(err) && i < providers.length - 1) {
+        console.log(`[ai-failover] ${providers[i].name} hit its quota — switching to ${providers[i + 1].name}`)
         continue
       }
       throw err
