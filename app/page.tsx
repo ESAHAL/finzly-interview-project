@@ -10,7 +10,7 @@ export default function Home() {
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="border-b border-border bg-card">
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
             <span
               aria-hidden="true"
@@ -27,17 +27,17 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-10 px-6 py-12">
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-6 py-12">
         <div className="flex flex-col gap-3">
           <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{t('heroTitle')}</h1>
-          <p className="max-w-xl text-base leading-relaxed text-muted-foreground text-pretty">{t('heroDesc')}</p>
+          <p className="max-w-2xl text-base leading-relaxed text-muted-foreground text-pretty">{t('heroDesc')}</p>
         </div>
 
         <PdfAnalyzer />
       </main>
 
       <footer className="border-t border-border">
-        <div className="mx-auto w-full max-w-3xl px-6 py-4">
+        <div className="mx-auto w-full max-w-5xl px-6 py-4">
           <p className="font-mono text-xs text-muted-foreground">{t('footer')}</p>
         </div>
       </footer>

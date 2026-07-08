@@ -25,7 +25,7 @@ const en: Dict = {
   tagline: 'AI Document Analysis',
   heroTitle: 'Understand any PDF in seconds',
   heroDesc:
-    'Paste a link to any publicly accessible PDF. The document is analysed server-side by Google Gemini and returned as a structured breakdown: type, title, authors, summary, and key takeaway.',
+    'Paste a PDF link or drag and drop a file. Google Gemini analyses the document server-side into a structured breakdown — type, title, authors, summary, and key takeaway. Go further with Deep Analyse for topics, tone, and audience in your preferred language, then ask follow-up questions grounded in the PDF itself.',
   footer: 'Next.js · AI SDK · Google Gemini · Deployed on Vercel',
   fromUrl: 'From URL',
   uploadFile: 'Upload file',
@@ -84,7 +84,7 @@ const hi: Dict = {
   tagline: 'एआई दस्तावेज़ विश्लेषण',
   heroTitle: 'किसी भी PDF को सेकंडों में समझें',
   heroDesc:
-    'किसी भी सार्वजनिक PDF का लिंक पेस्ट करें। दस्तावेज़ का विश्लेषण Google Gemini द्वारा सर्वर पर किया जाता है और संरचित रूप में लौटाया जाता है: प्रकार, शीर्षक, लेखक, सारांश और मुख्य निष्कर्ष।',
+    'PDF लिंक पेस्ट करें या फ़ाइल खींचकर छोड़ें। Google Gemini सर्वर पर दस्तावेज़ का संरचित विश्लेषण करता है — प्रकार, शीर्षक, लेखक, सारांश और मुख्य निष्कर्ष। गहन विश्लेषण से विषय, लहजा और लक्षित पाठक अपनी पसंदीदा भाषा में पाएँ, फिर PDF पर आधारित प्रश्न भी पूछें।',
   footer: 'Next.js · AI SDK · Google Gemini · Vercel पर डिप्लॉय',
   fromUrl: 'URL से',
   uploadFile: 'फ़ाइल अपलोड करें',
@@ -143,7 +143,7 @@ const es: Dict = {
   tagline: 'Análisis de documentos con IA',
   heroTitle: 'Comprende cualquier PDF en segundos',
   heroDesc:
-    'Pega el enlace de cualquier PDF público. El documento se analiza en el servidor con Google Gemini y se devuelve estructurado: tipo, título, autores, resumen y conclusión clave.',
+    'Pega un enlace PDF o arrastra y suelta un archivo. Google Gemini analiza el documento en el servidor y devuelve un desglose estructurado: tipo, título, autores, resumen y conclusión clave. Con el análisis profundo obtienes temas, tono y audiencia en tu idioma preferido, y puedes hacer preguntas basadas en el propio PDF.',
   footer: 'Next.js · AI SDK · Google Gemini · Desplegado en Vercel',
   fromUrl: 'Desde URL',
   uploadFile: 'Subir archivo',
@@ -202,7 +202,7 @@ const fr: Dict = {
   tagline: 'Analyse de documents par IA',
   heroTitle: "Comprenez n'importe quel PDF en quelques secondes",
   heroDesc:
-    "Collez le lien d'un PDF public. Le document est analysé côté serveur par Google Gemini et renvoyé sous forme structurée : type, titre, auteurs, résumé et conclusion clé.",
+    "Collez un lien PDF ou glissez-déposez un fichier. Google Gemini analyse le document côté serveur et renvoie une synthèse structurée : type, titre, auteurs, résumé et conclusion clé. L'analyse approfondie ajoute les sujets, le ton et le public visé dans la langue de votre choix, et vous pouvez poser des questions fondées sur le PDF.",
   footer: 'Next.js · AI SDK · Google Gemini · Déployé sur Vercel',
   fromUrl: 'Depuis une URL',
   uploadFile: 'Téléverser un fichier',
