@@ -33,7 +33,7 @@ Take-home assignment for **Finzly**. A web app that takes any publicly accessibl
 | Framework | Next.js 16 (App Router) |
 | Language | TypeScript + React |
 | API Keys | Google Gemini (`gemini-2.5-flash`), Mistral (`mistral-small-latest`) as fallback |
-| AI Agents / Tools | Vercel AI SDK + Gemini 3.1 pro + claude(opus 4.8,sonnet 5) + Antigravity2.0 |
+| AI Agents / Tools | Vercel AI SDK + Gemini 3.1 pro + Claude (opus 4.8, sonnet 5) + Antigravity2.0 |
 | Validation | Zod (schema-enforced structured output) |
 | Styling | Tailwind CSS v4 |
 | Hosting | Vercel |
