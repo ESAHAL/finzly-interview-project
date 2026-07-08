@@ -6,7 +6,7 @@
 
 @theme inline {
   --font-sans: 'Geist', 'Geist Fallback', 'Noto Sans Devanagari', system-ui, sans-serif;
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback', 'Noto Sans Devanagari', monospace;
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
