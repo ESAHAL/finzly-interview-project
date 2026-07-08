@@ -235,7 +235,7 @@ export function PdfAnalyzer() {
                   required
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://arxiv.org/pdf/1706.03762"
+                  placeholder="Paste a PDF link, e.g. https://example.com/document.pdf"
                   disabled={status === 'loading'}
                   className="h-11 flex-1 rounded-lg border border-input bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60"
                 />
