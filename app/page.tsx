@@ -1,6 +1,12 @@
+'use client'
+
+import { HeaderControls } from '@/components/header-controls'
 import { PdfAnalyzer } from '@/components/pdf-analyzer'
+import { useI18n } from '@/lib/i18n'
 
 export default function Home() {
+  const { t } = useI18n()
+
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="border-b border-border bg-card">
@@ -13,23 +19,18 @@ export default function Home() {
               P
             </span>
             <span className="text-sm font-semibold tracking-tight">PDF Analyser</span>
+            <span className="ml-2 hidden font-mono text-xs uppercase tracking-widest text-muted-foreground sm:inline">
+              {t('tagline')}
+            </span>
           </div>
-          <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-            AI Document Analysis
-          </span>
+          <HeaderControls />
         </div>
       </header>
 
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-10 px-6 py-12">
         <div className="flex flex-col gap-3">
-          <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-            Understand any PDF in seconds
-          </h1>
-          <p className="max-w-xl text-base leading-relaxed text-muted-foreground text-pretty">
-            Paste a link to any publicly accessible PDF. The document is analysed server-side by
-            Google Gemini and returned as a structured breakdown: type, title, authors, summary,
-            and key takeaway.
-          </p>
+          <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{t('heroTitle')}</h1>
+          <p className="max-w-xl text-base leading-relaxed text-muted-foreground text-pretty">{t('heroDesc')}</p>
         </div>
 
         <PdfAnalyzer />
@@ -37,9 +38,7 @@ export default function Home() {
 
       <footer className="border-t border-border">
         <div className="mx-auto w-full max-w-3xl px-6 py-4">
-          <p className="font-mono text-xs text-muted-foreground">
-            Next.js · AI SDK · Google Gemini · Deployed on Vercel
-          </p>
+          <p className="font-mono text-xs text-muted-foreground">{t('footer')}</p>
         </div>
       </footer>
     </div>

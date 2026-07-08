@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import type { Analysis, AnalysisOptions, ExtendedAnalysis, QaResult } from '@/lib/analysis'
 import { OUTPUT_LANGUAGES } from '@/lib/analysis'
+import { useI18n } from '@/lib/i18n'
 
 const SAMPLE_URL = 'https://arxiv.org/pdf/1706.03762'
 const MAX_PDF_BYTES = 25 * 1024 * 1024 // keep in sync with the API route
@@ -29,6 +30,7 @@ const FONT_CLASSES: Record<ResultFont, string> = {
 }
 
 export function PdfAnalyzer() {
+  const { t } = useI18n()
   const [mode, setMode] = useState<Mode>('url')
   const [url, setUrl] = useState('')
   const [status, setStatus] = useState<Status>('idle')
@@ -153,12 +155,12 @@ export function PdfAnalyzer() {
     if (status === 'loading') return
 
     if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-      setError('Only PDF files are supported. Please choose a .pdf file.')
+      setError(t('errorOnlyPdf'))
       setStatus('error')
       return
     }
     if (file.size > MAX_PDF_BYTES) {
-      setError('This PDF is too large (limit is 25 MB).')
+      setError(t('errorTooLarge'))
       setStatus('error')
       return
     }
@@ -206,7 +208,7 @@ export function PdfAnalyzer() {
               mode === 'url' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            From URL
+            {t('fromUrl')}
           </button>
           <button
             role="tab"
@@ -216,7 +218,7 @@ export function PdfAnalyzer() {
               mode === 'upload' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            Upload file
+            {t('uploadFile')}
           </button>
         </div>
 
@@ -224,7 +226,7 @@ export function PdfAnalyzer() {
           <form onSubmit={handleUrlSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="pdf-url" className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                PDF URL
+                {t('pdfUrl')}
               </label>
               <div className="flex flex-col gap-3 sm:flex-row">
                 <input
@@ -249,10 +251,10 @@ export function PdfAnalyzer() {
                           aria-hidden="true"
                           className="size-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground"
                         />
-                        Analysing…
+                        {t('analysing')}
                       </>
                     ) : (
-                      'Analyse'
+                      t('analyse')
                     )}
                   </button>
                   <button
@@ -272,13 +274,13 @@ export function PdfAnalyzer() {
                         : 'bg-background text-primary hover:bg-accent'
                     }`}
                   >
-                    {deepMode ? 'Run Deep Analyse' : 'Deep Analyse'}
+                    {deepMode ? t('runDeepAnalyse') : t('deepAnalyse')}
                   </button>
                 </div>
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              {'Try the sample: '}
+              {t('trySample')}{' '}
               <button
                 type="button"
                 onClick={() => setUrl(SAMPLE_URL)}
@@ -316,9 +318,9 @@ export function PdfAnalyzer() {
                 />
               </svg>
               <p className="text-sm text-foreground">
-                {status === 'loading' ? 'Analysing your PDF…' : 'Drag & drop a PDF here'}
+                {status === 'loading' ? t('analysingPdf') : t('dragDrop')}
               </p>
-              <p className="text-xs text-muted-foreground">Max 25 MB · PDF only</p>
+              <p className="text-xs text-muted-foreground">{t('maxSize')}</p>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -329,7 +331,7 @@ export function PdfAnalyzer() {
                   }}
                   className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Browse files
+                  {t('browseFiles')}
                 </button>
                 <button
                   type="button"
@@ -349,7 +351,7 @@ export function PdfAnalyzer() {
                       : 'bg-background text-primary hover:bg-accent'
                   }`}
                 >
-                  {deepMode ? 'Choose file for Deep Analyse' : 'Deep Analyse'}
+                  {deepMode ? t('chooseFileDeep') : t('deepAnalyse')}
                 </button>
               </div>
               <input
@@ -371,19 +373,19 @@ export function PdfAnalyzer() {
         {deepMode && (
           <div className="flex flex-col gap-3 border-t border-border pt-4">
             <div className="flex items-center justify-between">
-              <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Deep Analyse options</p>
+              <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">{t('deepOptions')}</p>
               <button
                 type="button"
                 onClick={() => setDeepMode(false)}
                 className="font-mono text-xs text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
               >
-                Cancel
+                {t('cancel')}
               </button>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <OptionSelect
                 id="opt-language"
-                label="Output language"
+                label={t('outputLanguage')}
                 value={language}
                 onChange={(v) => setLanguage(v as AnalysisOptions['language'])}
                 options={OUTPUT_LANGUAGES.map((l) => ({ value: l, label: l }))}
@@ -391,25 +393,25 @@ export function PdfAnalyzer() {
               />
               <OptionSelect
                 id="opt-summary"
-                label="Summary length"
+                label={t('summaryLength')}
                 value={summaryLength}
                 onChange={(v) => setSummaryLength(v as AnalysisOptions['summaryLength'])}
                 options={[
-                  { value: 'brief', label: 'Brief (1-2 sentences)' },
-                  { value: 'standard', label: 'Standard (2-3 sentences)' },
-                  { value: 'detailed', label: 'Detailed (5-7 sentences)' },
+                  { value: 'brief', label: t('brief') },
+                  { value: 'standard', label: t('standard') },
+                  { value: 'detailed', label: t('detailed') },
                 ]}
                 disabled={status === 'loading'}
               />
               <OptionSelect
                 id="opt-takeaway"
-                label="Key takeaway"
+                label={t('keyTakeawayOpt')}
                 value={takeawayLength}
                 onChange={(v) => setTakeawayLength(v as AnalysisOptions['takeawayLength'])}
                 options={[
-                  { value: 'one', label: '1 sentence' },
-                  { value: 'two', label: '2 sentences' },
-                  { value: 'three', label: '3 sentences' },
+                  { value: 'one', label: t('oneSentence') },
+                  { value: 'two', label: t('twoSentences') },
+                  { value: 'three', label: t('threeSentences') },
                 ]}
                 disabled={status === 'loading'}
               />
@@ -429,16 +431,14 @@ export function PdfAnalyzer() {
           <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
           <div className="h-4 w-full animate-pulse rounded bg-muted" />
           <div className="h-4 w-5/6 animate-pulse rounded bg-muted" />
-          <p className="text-sm text-muted-foreground">
-            Processing the PDF and running the AI analysis. This can take up to a minute for large documents.
-          </p>
+          <p className="text-sm text-muted-foreground">{t('loadingNote')}</p>
         </div>
       )}
 
       {/* Error state */}
       {status === 'error' && (
         <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-6">
-          <p className="font-mono text-xs uppercase tracking-widest text-destructive">Analysis failed</p>
+          <p className="font-mono text-xs uppercase tracking-widest text-destructive">{t('analysisFailed')}</p>
           <p className="mt-2 text-sm text-foreground">{error}</p>
         </div>
       )}
@@ -448,7 +448,7 @@ export function PdfAnalyzer() {
         <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-accent px-6 py-3">
             <p className="font-mono text-xs uppercase tracking-widest text-accent-foreground">
-              {isExtendedResult ? 'Deep analysis' : 'Analysis result'}
+              {isExtendedResult ? t('deepAnalysis') : t('analysisResult')}
             </p>
             <div className="flex items-center gap-4">
               {/* Result font switcher */}
@@ -474,22 +474,22 @@ export function PdfAnalyzer() {
                 onClick={copyJson}
                 className="font-mono text-xs text-accent-foreground underline underline-offset-2 hover:opacity-80"
               >
-                {copied ? 'Copied!' : 'Copy JSON'}
+                {copied ? t('copied') : t('copyJson')}
               </button>
               <p className="font-mono text-xs text-accent-foreground">gemini-2.5-flash</p>
             </div>
           </div>
           <dl className={`divide-y divide-border ${FONT_CLASSES[resultFont]}`}>
-            <ResultRow label="Document Type" value={analysis.documentType} />
-            <ResultRow label="Title" value={analysis.title} emphasize />
-            <ResultRow label="Authors" value={analysis.authors} />
-            <ResultRow label="Summary" value={analysis.summary} />
-            <ResultRow label="Key Takeaway" value={analysis.keyTakeaway} />
+            <ResultRow label={t('documentType')} value={analysis.documentType} />
+            <ResultRow label={t('titleLabel')} value={analysis.title} emphasize />
+            <ResultRow label={t('authors')} value={analysis.authors} />
+            <ResultRow label={t('summary')} value={analysis.summary} />
+            <ResultRow label={t('keyTakeaway')} value={analysis.keyTakeaway} />
             {isExtendedResult && (
               <>
                 <div className="grid gap-1 px-6 py-4 sm:grid-cols-[10rem_1fr] sm:gap-6">
                   <dt className="font-mono text-xs uppercase tracking-widest text-muted-foreground sm:pt-0.5">
-                    Key Topics
+                    {t('keyTopics')}
                   </dt>
                   <dd className="flex flex-wrap gap-2">
                     {analysis.keyTopics?.map((topic) => (
@@ -502,8 +502,8 @@ export function PdfAnalyzer() {
                     ))}
                   </dd>
                 </div>
-                {analysis.tone && <ResultRow label="Tone" value={analysis.tone} />}
-                {analysis.targetAudience && <ResultRow label="Audience" value={analysis.targetAudience} />}
+                {analysis.tone && <ResultRow label={t('tone')} value={analysis.tone} />}
+                {analysis.targetAudience && <ResultRow label={t('audience')} value={analysis.targetAudience} />}
               </>
             )}
           </dl>
@@ -514,10 +514,8 @@ export function PdfAnalyzer() {
       {status === 'success' && analysis && source && (
         <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-sm">
           <div className="flex flex-col gap-1">
-            <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Ask this PDF</h2>
-            <p className="text-sm text-muted-foreground">
-              Ask a question about the analysed document. Answers are grounded in the PDF whenever possible.
-            </p>
+            <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">{t('askThisPdf')}</h2>
+            <p className="text-sm text-muted-foreground">{t('askDesc')}</p>
           </div>
           <form onSubmit={handleAsk} className="flex flex-col gap-3 sm:flex-row">
             <input
@@ -525,7 +523,7 @@ export function PdfAnalyzer() {
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               maxLength={500}
-              placeholder="e.g. What methodology does this document use?"
+              placeholder={t('askPlaceholder')}
               disabled={qaStatus === 'loading'}
               aria-label="Question about the PDF"
               className="h-11 flex-1 rounded-lg border border-input bg-background px-4 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60"
@@ -541,10 +539,10 @@ export function PdfAnalyzer() {
                     aria-hidden="true"
                     className="size-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground"
                   />
-                  Searching PDF…
+                  {t('searchingPdf')}
                 </>
               ) : (
-                'Ask'
+                t('ask')
               )}
             </button>
           </form>
@@ -560,19 +558,16 @@ export function PdfAnalyzer() {
               {qaResult.foundInPdf ? (
                 <div className="rounded-lg border border-border bg-accent p-4">
                   <p className="font-mono text-xs uppercase tracking-widest text-accent-foreground">
-                    Answer · from the PDF
+                    {t('answerFromPdf')}
                   </p>
                   <p className="mt-2 text-sm leading-relaxed text-foreground text-pretty">{qaResult.answer}</p>
                 </div>
               ) : (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
                   <p className="font-mono text-xs uppercase tracking-widest text-destructive">
-                    Warning · not found in the PDF
+                    {t('warningNotFound')}
                   </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    This information is not present in the PDF. The answer below is general knowledge from the AI
-                    model, not from your document.
-                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">{t('notFoundDesc')}</p>
                   <p className="mt-3 border-t border-destructive/20 pt-3 text-sm leading-relaxed text-foreground text-pretty">
                     {qaResult.answer}
                   </p>
@@ -586,9 +581,7 @@ export function PdfAnalyzer() {
       {/* Session history */}
       {history.length > 1 && (
         <div className="flex flex-col gap-3">
-          <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-            Recent analyses (this session)
-          </h2>
+          <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">{t('recentAnalyses')}</h2>
           <ul className="flex flex-col gap-2">
             {history.slice(1).map((entry) => (
               <li key={entry.id}>
