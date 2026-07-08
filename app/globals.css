@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback', system-ui, sans-serif;
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;
+  --font-sans: 'Geist', 'Geist Fallback', 'Noto Sans Devanagari', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback', 'Noto Sans Devanagari', monospace;
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -56,6 +56,31 @@
   --input: oklch(0.912 0.006 95);
   --ring: oklch(0.42 0.085 165);
   --radius: 0.625rem;
+}
+
+.dark {
+  color-scheme: dark;
+  /* Deep neutral charcoal base */
+  --background: oklch(0.19 0.008 260);
+  --foreground: oklch(0.93 0.005 95);
+  --card: oklch(0.235 0.01 260);
+  --card-foreground: oklch(0.93 0.005 95);
+  --popover: oklch(0.235 0.01 260);
+  --popover-foreground: oklch(0.93 0.005 95);
+  /* Brighter trust green for dark backgrounds */
+  --primary: oklch(0.68 0.11 165);
+  --primary-foreground: oklch(0.16 0.01 260);
+  --secondary: oklch(0.28 0.01 260);
+  --secondary-foreground: oklch(0.88 0.005 95);
+  --muted: oklch(0.28 0.01 260);
+  --muted-foreground: oklch(0.68 0.01 260);
+  /* Dark mint accent */
+  --accent: oklch(0.3 0.035 165);
+  --accent-foreground: oklch(0.82 0.08 165);
+  --destructive: oklch(0.68 0.19 27);
+  --border: oklch(0.31 0.01 260);
+  --input: oklch(0.31 0.01 260);
+  --ring: oklch(0.68 0.11 165);
 }
 
 @layer base {
