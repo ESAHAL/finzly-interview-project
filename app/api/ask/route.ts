@@ -1,5 +1,5 @@
-import { google } from '@ai-sdk/google'
-import { generateText, Output } from 'ai'
+import { Output } from 'ai'
+import { generateWithFailover } from '@/lib/gemini'
 import { qaSchema } from '@/lib/analysis'
 
 // Allow up to 60s on Vercel — large PDFs + LLM inference can exceed the 10s default.
@@ -31,8 +31,7 @@ async function answerQuestion(pdfBuffer: ArrayBuffer, question: string) {
   }
 
   try {
-    const { output } = await generateText({
-      model: google('gemini-2.5-flash'),
+    const { output } = await generateWithFailover({
       output: Output.object({ schema: qaSchema }),
       messages: [
         {
@@ -53,7 +52,8 @@ async function answerQuestion(pdfBuffer: ArrayBuffer, question: string) {
       return errorResponse('The server is missing a valid Gemini API key.', 500)
     }
     if (message.toLowerCase().includes('quota') || message.includes('429')) {
-      return errorResponse('The AI service is rate-limited right now. Please try again in a minute.', 429)
+      // All configured API keys are exhausted (failover already tried each one).
+      return errorResponse('The AI service is rate-limited on all configured keys. Please try again in a minute.', 429)
     }
     return errorResponse('The AI could not answer the question. Please try again.', 502)
   }

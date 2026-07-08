@@ -300,18 +300,41 @@ Progressive disclosure (show advanced options only when asked for):
 A secret string that identifies **your account** to a service (like a database
 password, but for a web API). Whoever has it can spend your quota/money.
 
-### The key in this project
+### The keys in this project
 
 - `GOOGLE_GENERATIVE_AI_API_KEY` — free key from Google AI Studio
-  (aistudio.google.com → Get API key).
-- Stored as an **environment variable** (a value the OS/hosting platform gives
+  (aistudio.google.com → Get API key). This is the **primary** key.
+- `MISTRAL_API_KEY` — free key from Mistral (console.mistral.ai). This is the
+  **fallback**: if Gemini's quota runs out mid-demo, the app automatically
+  switches to Mistral's `mistral-small-latest` model and keeps working.
+- Optional: `GOOGLE_GENERATIVE_AI_API_KEY_2` / `_3` — extra Gemini keys from
+  other Google accounts can be slotted in before the Mistral fallback.
+- Stored as **environment variables** (a value the OS/hosting platform gives
   the running program — like `System.getenv()` in Java or values in
   `application.properties`, but never committed to the repo).
-- Locally it lives in `.env.local` / `.env.development.local` — these files are
-  in `.gitignore`, so they **never reach GitHub**.
-- The code never mentions the key: `@ai-sdk/google` reads the env var by
-  convention. If asked "where's the key in the code?" — the correct answer is
-  "nowhere, by design."
+- Locally they live in `.env.local` / `.env.development.local` — these files
+  are in `.gitignore`, so they **never reach GitHub**.
+- The route code never mentions any key: `lib/gemini.ts` builds the provider
+  chain from the env vars. If asked "where's the key in the code?" — the
+  correct answer is "nowhere, by design."
+
+### API key failover (a strong talking point)
+
+`lib/gemini.ts` implements a **failover chain** (like a backup generator):
+
+1. Every AI call goes through one function: `generateWithFailover()`.
+2. It tries the primary Gemini key first.
+3. If — and only if — the error is a **quota/rate-limit error (HTTP 429)**, it
+   retries the exact same request with the next key in the chain, ending with
+   Mistral (a completely different AI company).
+4. Any other error (bad PDF, invalid request) is NOT retried — a different key
+   wouldn't fix a broken PDF, it would just waste quota.
+
+Why the cross-provider switch works: the AI SDK gives every provider the same
+interface (in Java terms: `GoogleProvider` and `MistralProvider` both implement
+the same `LanguageModel` interface), and the Zod schema is enforced identically
+no matter which model answers. Interviewer phrase: "the app has no single point
+of failure on the AI vendor side."
 
 ### Free-tier limits (Gemini, as of mid-2026 — check ai.google.dev/pricing)
 

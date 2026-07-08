@@ -1,5 +1,5 @@
-import { google } from '@ai-sdk/google'
-import { generateText, Output } from 'ai'
+import { Output } from 'ai'
+import { generateWithFailover } from '@/lib/gemini'
 import {
   analysisSchema,
   extendedAnalysisSchema,
@@ -55,8 +55,7 @@ async function analysePdf(pdfBuffer: ArrayBuffer, options: AnalysisOptions) {
 
   // ---- Send the PDF to Gemini and request structured JSON output ----
   try {
-    const { output } = await generateText({
-      model: google('gemini-2.5-flash'),
+    const { output } = await generateWithFailover({
       output: Output.object({
         schema: options.extended ? extendedAnalysisSchema : analysisSchema,
       }),
@@ -83,7 +82,8 @@ async function analysePdf(pdfBuffer: ArrayBuffer, options: AnalysisOptions) {
       return errorResponse('The server is missing a valid Gemini API key.', 500)
     }
     if (message.toLowerCase().includes('quota') || message.includes('429')) {
-      return errorResponse('The AI service is rate-limited right now. Please try again in a minute.', 429)
+      // All configured API keys are exhausted (failover already tried each one).
+      return errorResponse('The AI service is rate-limited on all configured keys. Please try again in a minute.', 429)
     }
     return errorResponse('The AI analysis failed. Please try again.', 502)
   }
