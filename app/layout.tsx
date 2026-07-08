@@ -28,8 +28,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="bg-background" suppressHydrationWarning>
       <head>
-        {/* Applies the saved theme before first paint to avoid a light-mode flash. */}
+        {/* Applies the saved theme before first paint to avoid a light-mode flash.
+            suppressHydrationWarning: dev/preview environments may inject their own
+            scripts into <head>, shifting positions and causing a false mismatch. */}
         <script
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `try{if(localStorage.getItem('ui-theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}`,
           }}
