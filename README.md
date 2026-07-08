@@ -22,6 +22,7 @@ Take-home assignment for **Finzly**. A web app that takes any publicly accessibl
 - **Session history** — revisit the last 5 analyses instantly without re-calling the AI
 - **UI language switcher** (English, Hindi, Spanish, French) and **dark/light theme**, both persisted
 - **Sample PDFs** — one-click test documents (research paper, Bitcoin whitepaper, IRS form, fintech report)
+- **API failover chain** — if the Gemini key hits its rate limit, the same request is automatically retried with backup Gemini keys and finally **Mistral** (`mistral-small-latest`), so there is no single point of failure on the AI vendor side
 
 ---
 
@@ -31,7 +32,7 @@ Take-home assignment for **Finzly**. A web app that takes any publicly accessibl
 |---|---|
 | Framework | Next.js 16 (App Router) |
 | Language | TypeScript + React |
-| AI | Vercel AI SDK + Google Gemini (`gemini-2.5-flash`) |
+| AI | Vercel AI SDK + Google Gemini (`gemini-2.5-flash`), Mistral (`mistral-small-latest`) as fallback |
 | Validation | Zod (schema-enforced structured output) |
 | Styling | Tailwind CSS v4 |
 | Hosting | Vercel |
@@ -48,15 +49,21 @@ cd finzly-interview-project
 pnpm install   # or npm install / yarn install
 ```
 
-### 2. Add your API key
+### 2. Add your API key(s)
 
 Create a `.env.local` file in the project root:
 
 ```bash
-GOOGLE_GENERATIVE_AI_API_KEY=your_key_here
+# Required — primary AI provider
+GOOGLE_GENERATIVE_AI_API_KEY=your_gemini_key_here
+
+# Optional — fallbacks used only when the previous key is rate-limited
+GOOGLE_GENERATIVE_AI_API_KEY_2=second_gemini_key   # from a different Google account
+GOOGLE_GENERATIVE_AI_API_KEY_3=third_gemini_key
+MISTRAL_API_KEY=your_mistral_key                   # cross-provider fallback
 ```
 
-Get a free key at [Google AI Studio](https://aistudio.google.com) (API Keys → Create API key). The free tier is sufficient for testing.
+Get a free Gemini key at [Google AI Studio](https://aistudio.google.com) (API Keys → Create API key) and an optional free Mistral key at [console.mistral.ai](https://console.mistral.ai). The free tiers are sufficient for testing.
 
 ### 3. Run the dev server
 
@@ -86,11 +93,12 @@ JSON → rendered result card
 - `app/api/analyze/route.ts` — analysis endpoint (standard + deep modes)
 - `app/api/ask/route.ts` — grounded Q&A endpoint with `foundInPdf` flag
 - `lib/analysis.ts` — shared Zod schemas (single source of truth)
+- `lib/gemini.ts` — AI provider failover chain (Gemini keys → Mistral)
 - `components/pdf-analyzer.tsx` — main UI component
 - `lib/i18n.tsx` — UI translation dictionary and language context
 
 ### Security notes
-- API key lives only in server environment variables — never in client code or git
+- API keys live only in server environment variables — never in client code or git
 - Server re-validates everything the client sends (client checks are UX, server checks are security)
 - PDF magic-byte verification prevents disguised non-PDF content
 - Analysis options are validated against a Zod enum allowlist — user input can never be injected into the AI prompt as free text
