@@ -1,31 +1,65 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
-import { generateText, Output } from 'ai'
+import { createMistral } from '@ai-sdk/mistral'
+import { generateText, Output, type LanguageModel } from 'ai'
 
 /**
- * API key failover ("multi-key rotation").
+ * Provider + API key failover ("multi-key rotation").
  *
- * Free-tier Gemini keys have a small daily quota. To avoid the whole app
- * going down when one key is exhausted, we support multiple keys:
+ * Free-tier keys have small daily quotas. To avoid the whole app going
+ * down when one key is exhausted, we build a chain of providers:
  *
- *   GOOGLE_GENERATIVE_AI_API_KEY     (primary — required)
- *   GOOGLE_GENERATIVE_AI_API_KEY_2   (optional fallback)
- *   GOOGLE_GENERATIVE_AI_API_KEY_3   (optional fallback)
+ *   1. GOOGLE_GENERATIVE_AI_API_KEY     (primary — Gemini, required)
+ *   2. GOOGLE_GENERATIVE_AI_API_KEY_2   (optional — second Gemini key)
+ *   3. GOOGLE_GENERATIVE_AI_API_KEY_3   (optional — third Gemini key)
+ *   4. MISTRAL_API_KEY                  (optional — cross-provider fallback,
+ *                                        Mistral chat models support PDF OCR)
  *
  * When a call fails with a quota / rate-limit error, we retry the same
- * request with the next key. Any other error (bad PDF, invalid request)
- * is NOT retried — retrying wouldn't help and would waste quota.
+ * request with the next entry in the chain. Any other error (bad PDF,
+ * invalid request) is NOT retried — retrying wouldn't help and would
+ * waste quota.
+ *
+ * Cross-provider note: this only works because the AI SDK gives every
+ * provider the same interface (model + messages + structured output).
+ * The Zod schema is enforced identically regardless of which model answers.
  */
 
-const MODEL_ID = 'gemini-2.5-flash'
+const GEMINI_MODEL = 'gemini-2.5-flash'
+const MISTRAL_MODEL = 'mistral-small-latest'
 
-/** Collect all configured keys, in priority order. */
-function getApiKeys(): string[] {
-  const keys = [
+type ProviderEntry = {
+  /** Human-readable name for logs, e.g. "gemini key 2" or "mistral" */
+  name: string
+  model: LanguageModel
+}
+
+/** Build the failover chain from whatever keys are configured, in priority order. */
+function getProviderChain(): ProviderEntry[] {
+  const chain: ProviderEntry[] = []
+
+  const geminiKeys = [
     process.env.GOOGLE_GENERATIVE_AI_API_KEY,
     process.env.GOOGLE_GENERATIVE_AI_API_KEY_2,
     process.env.GOOGLE_GENERATIVE_AI_API_KEY_3,
   ]
-  return keys.filter((k): k is string => typeof k === 'string' && k.length > 0)
+  geminiKeys.forEach((key, i) => {
+    if (typeof key === 'string' && key.length > 0) {
+      chain.push({
+        name: `gemini key ${i + 1}`,
+        model: createGoogleGenerativeAI({ apiKey: key })(GEMINI_MODEL),
+      })
+    }
+  })
+
+  const mistralKey = process.env.MISTRAL_API_KEY
+  if (typeof mistralKey === 'string' && mistralKey.length > 0) {
+    chain.push({
+      name: 'mistral',
+      model: createMistral({ apiKey: mistralKey })(MISTRAL_MODEL),
+    })
+  }
+
+  return chain
 }
 
 /** Quota / rate-limit errors are the only ones worth retrying with another key. */
@@ -46,28 +80,27 @@ type GenerateParams = {
 }
 
 /**
- * Run a Gemini generation, failing over to the next API key on quota errors.
- * Throws the last error if every key is exhausted.
+ * Run a generation, failing over to the next provider/key on quota errors.
+ * Throws the last error if every entry in the chain is exhausted.
  */
 export async function generateWithFailover({ output, messages }: GenerateParams) {
-  const keys = getApiKeys()
-  if (keys.length === 0) {
-    throw new Error('No Gemini API key configured (GOOGLE_GENERATIVE_AI_API_KEY).')
+  const chain = getProviderChain()
+  if (chain.length === 0) {
+    throw new Error('No AI API key configured (GOOGLE_GENERATIVE_AI_API_KEY).')
   }
 
   let lastError: unknown
-  for (let i = 0; i < keys.length; i++) {
-    const provider = createGoogleGenerativeAI({ apiKey: keys[i] })
+  for (let i = 0; i < chain.length; i++) {
     try {
       return await generateText({
-        model: provider(MODEL_ID),
+        model: chain[i].model,
         output,
         messages,
       })
     } catch (err) {
       lastError = err
-      if (isQuotaError(err) && i < keys.length - 1) {
-        console.log(`[gemini] Key ${i + 1} hit its quota — switching to key ${i + 2}`)
+      if (isQuotaError(err) && i < chain.length - 1) {
+        console.log(`[failover] ${chain[i].name} hit its quota — switching to ${chain[i + 1].name}`)
         continue
       }
       throw err
