@@ -5,7 +5,23 @@ import type { Analysis, AnalysisOptions, ExtendedAnalysis, QaResult } from '@/li
 import { OUTPUT_LANGUAGES } from '@/lib/analysis'
 import { useI18n } from '@/lib/i18n'
 
-const SAMPLE_URL = 'https://arxiv.org/pdf/1706.03762'
+// Small, publicly accessible PDFs covering different document types.
+// Kept small on purpose: large PDFs consume more Gemini tokens per analysis.
+const SAMPLE_PDFS = [
+  { label: 'Research paper', name: 'Attention Is All You Need', url: 'https://arxiv.org/pdf/1706.03762' },
+  { label: 'Whitepaper', name: 'Bitcoin (184 KB)', url: 'https://bitcoin.org/bitcoin.pdf' },
+  { label: 'Tax form', name: 'IRS Form 1040 (220 KB)', url: 'https://www.irs.gov/pub/irs-pdf/f1040.pdf' },
+  {
+    label: 'Classic paper',
+    name: 'Einstein, Special Relativity (248 KB)',
+    url: 'https://www.fourmilab.ch/etexts/einstein/specrel/specrel.pdf',
+  },
+  {
+    label: 'Fintech report',
+    name: 'BIS: Payments without borders (456 KB)',
+    url: 'https://www.bis.org/publ/qtrpdf/r_qt2003h.pdf',
+  },
+] as const
 const MAX_PDF_BYTES = 25 * 1024 * 1024 // keep in sync with the API route
 
 type Status = 'idle' | 'loading' | 'success' | 'error'
@@ -279,16 +295,26 @@ export function PdfAnalyzer() {
                 </div>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {t('trySample')}{' '}
-              <button
-                type="button"
-                onClick={() => setUrl(SAMPLE_URL)}
-                className="font-mono text-accent-foreground underline underline-offset-2 hover:opacity-80"
-              >
-                {SAMPLE_URL}
-              </button>
-            </p>
+            <div className="flex flex-col gap-2">
+              <p className="text-xs text-muted-foreground">{t('trySample')}</p>
+              <div className="flex flex-wrap gap-2">
+                {SAMPLE_PDFS.map((sample) => (
+                  <button
+                    key={sample.url}
+                    type="button"
+                    onClick={() => setUrl(sample.url)}
+                    title={sample.name}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-3 py-1.5 text-xs text-secondary-foreground transition-colors hover:border-primary hover:text-foreground"
+                  >
+                    <span className="font-mono uppercase tracking-wide text-muted-foreground">{sample.label}</span>
+                    <span aria-hidden="true" className="text-muted-foreground">
+                      ·
+                    </span>
+                    {sample.name}
+                  </button>
+                ))}
+              </div>
+            </div>
           </form>
         ) : (
           <div className="flex flex-col gap-3">

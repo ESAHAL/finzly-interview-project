@@ -34,7 +34,7 @@ const en: Dict = {
   analysing: 'Analysing…',
   deepAnalyse: 'Deep Analyse',
   runDeepAnalyse: 'Run Deep Analyse',
-  trySample: 'Try the sample:',
+  trySample: 'Try a sample:',
   dragDrop: 'Drag & drop a PDF here',
   analysingPdf: 'Analysing your PDF…',
   maxSize: 'Max 25 MB · PDF only',
